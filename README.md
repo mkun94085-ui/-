@@ -1,38 +1,55 @@
--- [[ R-HUB ULTIMATE | V1.3.0 -> ROAD TO 10.01 ]] --
+-- [[ R-HUB AETHER | ADVANCED UPDATE UI SYSTEM v2.8.0 ]] --
 
 local TARGET_KEY = "six seven"
-local SPECIAL_KEY = "Mark"
+local ADMIN_KEY = "R-HUB-ADMIN-2026"
+local SAVE_FILE = "RH_Aether_Cloud.json"
 
 local player = game:GetService("Players").LocalPlayer
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
--- ระบบจัดการเวอร์ชัน (สามารถขยับได้ถึง 10.01)
-local VersionData = {
-    Current = 1.30,
-    Max = 10.01,
-    Status = "Stable"
-}
-
+local currentVer = 2.80
 local isExpanded = false
 local isWarping = false
 
--- [[ 1. UI DESIGN ]] --
+-- [[ 1. STORAGE & EXPIRY ]] --
+local function saveSession(kType)
+    local data = {startTime = os.time(), kType = kType, ver = currentVer}
+    writefile(SAVE_FILE, HttpService:JSONEncode(data))
+end
+
+local function getSession()
+    if not isfile(SAVE_FILE) then return nil end
+    return HttpService:JSONDecode(readfile(SAVE_FILE))
+end
+
+local function isExpired()
+    local session = getSession()
+    if not session then return true end
+    return (os.time() - session.startTime) >= 86400 -- 24 ชม.
+end
+
+-- [[ 2. UI CREATION ]] --
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RHUB_Evolution_System"
+ScreenGui.Name = "RH_Aether_Evolution"
 ScreenGui.Parent = player:WaitForChild("PlayerGui")
 ScreenGui.IgnoreGuiInset = true
 
-local Island = Instance.new("TextButton")
+-- Dynamic Island (หลัก)
+local Island = Instance.new("Frame")
+Island.Name = "Island"
 Island.Parent = ScreenGui
-Island.BackgroundColor3 = Color3.new(0, 0, 0)
-Island.Position = UDim2.new(0.5, -75, 0, 15)
-Island.Size = UDim2.new(0, 150, 0, 32)
-Island.AutoButtonColor = false
-Island.Text = ""
+Island.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Island.Position = UDim2.new(0.5, -65, 0, 15)
+Island.Size = UDim2.new(0, 130, 0, 38)
 Island.ClipsDescendants = true
 local IslandCorner = Instance.new("UICorner", Island)
 IslandCorner.CornerRadius = UDim.new(1, 0)
+
+local UIStroke = Instance.new("UIStroke", Island)
+UIStroke.Thickness = 1.5
+UIStroke.Color = Color3.fromRGB(0, 255, 180)
+UIStroke.Transparency = 0.4
 
 local MainLabel = Instance.new("TextLabel")
 MainLabel.Parent = Island
@@ -41,170 +58,162 @@ MainLabel.BackgroundTransparency = 1
 MainLabel.Font = Enum.Font.GothamBold
 MainLabel.TextColor3 = Color3.new(1, 1, 1)
 MainLabel.TextSize = 11
-MainLabel.Text = "R-HUB v" .. string.format("%.2f", VersionData.Current)
+MainLabel.Text = "AETHER v" .. string.format("%.2f", currentVer)
 
--- Notification Panel (เด้งอัปเดตแก้ไขบัค)
-local UpdateBox = Instance.new("Frame")
-UpdateBox.Parent = ScreenGui
-UpdateBox.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-UpdateBox.Position = UDim2.new(1, 50, 0.4, 0)
-UpdateBox.Size = UDim2.new(0, 250, 0, 120)
-Instance.new("UICorner", UpdateBox)
+-- Update Center (หน้าต่างอัปเดต)
+local UpdatePanel = Instance.new("Frame")
+UpdatePanel.Parent = ScreenGui
+UpdatePanel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+UpdatePanel.Position = UDim2.new(1, 20, 0.4, 0) -- ซ่อนไว้ขวาจอ
+UpdatePanel.Size = UDim2.new(0, 260, 0, 150)
+Instance.new("UICorner", UpdatePanel)
 
-local NotifTitle = Instance.new("TextLabel")
-NotifTitle.Parent = UpdateBox
-NotifTitle.Size = UDim2.new(1, 0, 0.3, 0)
-NotifTitle.BackgroundTransparency = 1
-NotifTitle.Font = Enum.Font.GothamBold
-NotifTitle.TextColor3 = Color3.fromRGB(0, 255, 150)
-NotifTitle.Text = "BUG FIX DETECTED!"
-NotifTitle.TextSize = 14
+local PanelStroke = Instance.new("UIStroke", UpdatePanel)
+PanelStroke.Color = Color3.fromRGB(40, 40, 40)
+PanelStroke.Thickness = 2
 
-local NotifDesc = Instance.new("TextLabel")
-NotifDesc.Parent = UpdateBox
-NotifDesc.Position = UDim2.new(0, 0, 0.3, 0)
-NotifDesc.Size = UDim2.new(1, 0, 0.3, 0)
-NotifDesc.BackgroundTransparency = 1
-NotifDesc.Font = Enum.Font.Gotham
-NotifDesc.TextColor3 = Color3.new(0.9, 0.9, 0.9)
-NotifDesc.Text = "Optimizing Warp Logic...\nTarget Version: 1.31"
-NotifDesc.TextSize = 10
+local Title = Instance.new("TextLabel")
+Title.Parent = UpdatePanel
+Title.Size = UDim2.new(1, 0, 0.3, 0)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.TextColor3 = Color3.fromRGB(0, 180, 255)
+Title.TextSize = 14
+Title.Text = "SYSTEM EVOLUTION"
 
-local UpBtn = Instance.new("TextButton")
-UpBtn.Parent = UpdateBox
-UpBtn.Position = UDim2.new(0.08, 0, 0.65, 0)
-UpBtn.Size = UDim2.new(0, 100, 0, 30)
-UpBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-UpBtn.Font = Enum.Font.GothamBold
-UpBtn.Text = "UPDATE NOW"
-UpBtn.TextColor3 = Color3.new(1, 1, 1)
-UpBtn.TextSize = 11
-Instance.new("UICorner", UpBtn)
+local Desc = Instance.new("TextLabel")
+Desc.Parent = UpdatePanel
+Desc.Position = UDim2.new(0, 15, 0.3, 0)
+Desc.Size = UDim2.new(1, -30, 0.3, 0)
+Desc.BackgroundTransparency = 1
+Desc.Font = Enum.Font.Gotham
+Desc.TextColor3 = Color3.fromRGB(200, 200, 200)
+Desc.TextSize = 10
+Desc.Text = "New Patch v"..string.format("%.2f", currentVer + 0.1).." Ready.\n- Fixed UI Glitch\n- Boosted Warp Speed"
+Desc.TextXAlignment = Enum.TextXAlignment.Left
 
-local SkipBtn = Instance.new("TextButton")
-SkipBtn.Parent = UpdateBox
-SkipBtn.Position = UDim2.new(0.55, 0, 0.65, 0)
-SkipBtn.Size = UDim2.new(0, 100, 0, 30)
-SkipBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-SkipBtn.Font = Enum.Font.GothamBold
-SkipBtn.Text = "IGNORE"
-SkipBtn.TextColor3 = Color3.new(1, 1, 1)
-SkipBtn.TextSize = 11
-Instance.new("UICorner", SkipBtn)
+local UpdateBtn = Instance.new("TextButton")
+UpdateBtn.Parent = UpdatePanel
+UpdateBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
+UpdateBtn.Size = UDim2.new(0, 235, 0, 38)
+UpdateBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+UpdateBtn.Font = Enum.Font.GothamBold
+UpdateBtn.TextColor3 = Color3.new(0, 0, 0)
+UpdateBtn.TextSize = 12
+UpdateBtn.Text = "INSTALL UPDATE"
+Instance.new("UICorner", UpdateBtn)
 
--- [[ 2. WARP SYSTEM (STABLE 20S) ]] --
-local function getFinishCFrame()
-    local target = workspace:FindFirstChild("Finish") or workspace:FindFirstChild("Win")
-    if not target then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("TouchTransmitter") and (v.Parent.Name:lower():find("win") or v.Parent.Name:lower():find("finish")) then
-                target = v.Parent break
-            end
-        end
+-- [[ 3. EVOLUTION LOGIC ]] --
+local function applyEvolution()
+    if currentVer >= 10.01 then return end
+    
+    currentVer = currentVer + 0.5 -- เพิ่มเวอร์ชัน
+    
+    -- เอฟเฟกต์การอัปเกรด UI
+    UpdateBtn.Visible = false
+    Title.Text = "INSTALLING..."
+    task.wait(2)
+    
+    -- ปรับหน้าตา Island ตามเวอร์ชัน
+    if currentVer >= 4.0 then
+        UIStroke.Color = Color3.fromRGB(255, 0, 100) -- เปลี่ยนสีขอบ
+        UIStroke.Thickness = 2.5
     end
-    return target and target.CFrame
-end
-
-local function stableWarp()
-    if isWarping then return end
-    isWarping = true
-    pcall(function()
-        local char = player.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        local finishCF = getFinishCFrame()
-        if root and finishCF then
-            root.Velocity = Vector3.zero
-            root.CFrame = finishCF * CFrame.new(0, 3, 0)
-            root.Anchored = true
-            task.wait(0.6) -- เพิ่มเวลาล็อกตัวเล็กน้อยเพื่อความเสถียร
-            root.Anchored = false
-        end
-    end)
-    isWarping = false
-end
-
--- [[ 3. UPDATE LOGIC ]] --
-local function applyUpdate()
-    if VersionData.Current < VersionData.Max then
-        VersionData.Current = VersionData.Current + 0.01
-        MainLabel.Text = "UPDATING..."
-        task.wait(2)
-        MainLabel.Text = "v" .. string.format("%.2f", VersionData.Current) .. " ACTIVE"
-        UpdateBox:TweenPosition(UDim2.new(1, 50, 0.4, 0), "In", "Sine", 0.5)
-        task.wait(1)
+    if currentVer >= 7.0 then
+        Island.BackgroundColor3 = Color3.fromRGB(10, 0, 20)
+        UIStroke.Color = Color3.fromRGB(255, 215, 0) -- ขอบทอง
     end
+    
+    MainLabel.Text = "v" .. string.format("%.2f", currentVer)
+    UpdatePanel:TweenPosition(UDim2.new(1, 20, 0.4, 0), "In", "Sine", 0.5)
+    UpdateBtn.Visible = true
+    Title.Text = "SYSTEM EVOLUTION"
+    Desc.Text = "System is up to date."
 end
 
-UpBtn.MouseButton1Click:Connect(applyUpdate)
-SkipBtn.MouseButton1Click:Connect(function()
-    UpdateBox:TweenPosition(UDim2.new(1, 50, 0.4, 0), "In", "Sine", 0.5)
-end)
-
--- [[ 4. MAIN CONTROLLER ]] --
-local function runSystem()
-    -- เริ่มต้นด้วยการตรวจสอบบัคและเสนออัปเดตเวอร์ชันแรก
+-- [[ 4. CORE LOOP ]] --
+local function runAether()
     task.spawn(function()
-        task.wait(3)
-        NotifDesc.Text = "Bug Fixed: Rapid Warp Engine\nReady for v" .. string.format("%.2f", VersionData.Current + 0.01)
-        UpdateBox:TweenPosition(UDim2.new(1, -260, 0.4, 0), "Out", "Back", 0.5)
-    end)
-
-    -- ลูปวาร์ป 20 วินาที
-    task.spawn(function()
-        local countdown = 20
         while true do
-            stableWarp()
+            if isExpired() then
+                MainLabel.Text = "EXPIRED (24H)"
+                MainLabel.TextColor3 = Color3.new(1,0,0)
+                UIStroke.Color = Color3.new(1,0,0)
+                UpdateBtn.Text = "KEY EXPIRED - CONTACT ADMIN"
+                UpdateBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                break
+            end
+            
+            -- Stable Warp
+            if not isWarping then
+                isWarping = true
+                pcall(function()
+                    local root = player.Character.HumanoidRootPart
+                    local win = workspace:FindFirstChild("Finish") or workspace:FindFirstChild("Win")
+                    if root and win then
+                        root.CFrame = win.CFrame * CFrame.new(0, 3, 0)
+                        root.Anchored = true; task.wait(0.6); root.Anchored = false
+                    end
+                end)
+                isWarping = false
+            end
+            
+            -- Island Animation
             for i = 20, 1, -1 do
-                countdown = i
                 if isExpanded then
-                    MainLabel.Text = "WINS: "..((player.leaderstats:FindFirstChild("Wins") or player.leaderstats:FindFirstChild("Win") or {Value=0}).Value).."\nWARP: "..countdown.."s"
+                    MainLabel.Text = "WARP: "..i.."s | v"..string.format("%.2f", currentVer)
                 else
-                    MainLabel.Text = "v" .. string.format("%.2f", VersionData.Current) .. " | " .. countdown .. "s"
+                    MainLabel.Text = i .. "s | v" .. string.format("%.2f", currentVer)
                 end
                 task.wait(1)
             end
         end
     end)
-end
-
--- [[ 5. INTERACTION ]] --
-Island.MouseButton1Click:Connect(function()
-    isExpanded = not isExpanded
-    if isExpanded then
-        Island:TweenSizeAndPosition(UDim2.new(0, 220, 0, 80), UDim2.new(0.5, -110, 0, 15), "Out", "Back", 0.3, true)
-    else
-        Island:TweenSizeAndPosition(UDim2.new(0, 150, 0, 32), UDim2.new(0.5, -75, 0, 15), "In", "Sine", 0.3, true)
-    end
-end)
-
--- หน้าใส่ Key
-local function setupAuth()
-    local KeyInput = Instance.new("TextBox")
-    KeyInput.Parent = Island
-    KeyInput.Size = UDim2.new(1, 0, 1, 0)
-    KeyInput.BackgroundTransparency = 1
-    KeyInput.Font = Enum.Font.GothamBold
-    KeyInput.TextColor3 = Color3.new(1, 1, 1)
-    KeyInput.PlaceholderText = "ENTER KEY"
-    KeyInput.TextSize = 11
     
-    KeyInput.FocusLost:Connect(function(enter)
-        if enter and (KeyInput.Text == TARGET_KEY or KeyInput.Text == SPECIAL_KEY) then
-            KeyInput:Destroy()
-            runSystem()
-        else
-            KeyInput.Text = "" KeyInput.PlaceholderText = "WRONG KEY"
+    -- ระบบเด้งอัปเดตอัจฉริยะ (สุ่มเด้งทุก 5 ชม.)
+    task.spawn(function()
+        while true do
+            task.wait(18000)
+            if not isExpired() then
+                UpdatePanel:TweenPosition(UDim2.new(1, -280, 0.4, 0), "Out", "Back", 0.5)
+            end
         end
     end)
 end
 
-setupAuth()
-
--- Anti-AFK
-pcall(function()
-    player.Idled:Connect(function()
-        game:GetService("VirtualUser"):Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-        task.wait(1)
-        game:GetService("VirtualUser"):Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-    end)
+-- [[ 5. INITIALIZE ]] --
+UpdateBtn.MouseButton1Click:Connect(function()
+    if isExpired() then return end
+    applyEvolution()
 end)
+
+Island.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isExpanded = not isExpanded
+        local ts = isExpanded and UDim2.new(0, 240, 0, 85) or UDim2.new(0, 130, 0, 38)
+        local tp = isExpanded and UDim2.new(0.5, -120, 0, 15) or UDim2.new(0.5, -65, 0, 15)
+        TweenService:Create(Island, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Size = ts, Position = tp}):Play()
+    end
+end)
+
+local function startAuth()
+    local session = getSession()
+    if session and not isExpired() then
+        runAether()
+    else
+        MainLabel.Text = "NEED KEY"
+        local kIn = Instance.new("TextBox", Island)
+        kIn.Size = UDim2.new(1,0,1,0); kIn.BackgroundTransparency = 1; kIn.TextColor3 = Color3.new(1,1,1); kIn.PlaceholderText = "24H KEY"
+        kIn.FocusLost:Connect(function(enter)
+            if enter then
+                if kIn.Text == TARGET_KEY or kIn.Text == ADMIN_KEY then
+                    saveSession(kIn.Text == ADMIN_KEY and "ADMIN" or "USER")
+                    kIn:Destroy(); runAether()
+                    UpdatePanel:TweenPosition(UDim2.new(1, -280, 0.4, 0), "Out", "Back", 0.5) -- เด้ง UI อัปเดตทันทีที่รัน
+                end
+            end
+        end)
+    end
+end
+
+startAuth()
