@@ -1,168 +1,124 @@
--- [[ R-HUB AETHER | v2.9.0 - UNIVERSAL WARP FIX ]] --
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+local Window = Library.CreateLib("AmNyamania 2 ✨ ANIMATED", "Midnight")
 
-local TARGET_KEY = "six seven"
-local ADMIN_KEY = "R-HUB-ADMIN-2026"
-local SAVE_FILE = "RH_Aether_Final.json"
-
-local player = game:GetService("Players").LocalPlayer
+-- // Services
 local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
-local currentVer = 2.90
-local isExpanded = false
-local isWarping = false
+-- // Configuration
+getgenv().candyEnabled = false
+getgenv().autoFarm = false
+getgenv().flyEnabled = false
+getgenv().flySpeed = 60
 
--- [[ 1. UNIVERSAL WIN FINDER (เครื่องยนต์หาเส้นชัยใหม่) ]] --
-local function getWinningCFrame()
-    local target = nil
-    -- ลำดับการหา: 1. ชื่อตรงตัว | 2. ชื่อคล้าย | 3. จุดที่มี TouchTransmitter (เส้นชัยส่วนใหญ่ใช้ตัวนี้)
-    local winNames = {"finish", "win", "end", "goal", "victory", "checkpoint"}
+-- // --- ANIMATION FUNCTIONS --- //
+
+-- ฟังก์ชันวาร์ปแบบนุ่มนวล (Tween Animation)
+local function SmoothTeleport(targetCFrame)
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = LocalPlayer.Character.HumanoidRootPart
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local speed = 100 -- ความเร็วในการวาร์ป (ยิ่งเยอะยิ่งเร็ว)
+    local duration = distance / speed
+
+    local info = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(hrp, info, {CFrame = targetCFrame})
     
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("BasePart") then
-            local name = v.Name:lower()
-            for _, winName in pairs(winNames) do
-                if name:find(winName) then
-                    -- เช็คว่ามี TouchTransmitter ไหม (ถ้ามีคือจุดรับรางวัลชัวร์)
-                    if v:FindFirstChildOfClass("TouchTransmitter") then
-                        return v.CFrame
-                    end
-                    target = v.CFrame
-                end
-            end
-        end
-    end
-    return target
+    tween:Play()
+    return tween
 end
 
--- [[ 2. CORE WARP LOGIC ]] --
-local function executeWarp()
-    if isWarping then return end
-    isWarping = true
+-- ระบบบินพร้อม Animation (Smooth Fly)
+local function ToggleFly()
+    local char = LocalPlayer.Character
+    local hrp = char:WaitForChild("HumanoidRootPart")
     
-    local char = player.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    local winCF = getWinningCFrame()
+    local bg = Instance.new("BodyGyro", hrp)
+    bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bg.P = 5000 -- ปรับให้หมุนนุ่มนวล
     
-    if root and winCF then
-        pcall(function()
-            root.Velocity = Vector3.new(0,0,0)
-            root.CFrame = winCF * CFrame.new(0, 3, 0)
-            root.Anchored = true
-            task.wait(0.8) -- ล็อกตัวกันเด้งกลับ
-            root.Anchored = false
-        end)
-    else
-        MainLabel.Text = "🔍 SEARCHING WIN..."
-    end
+    local bv = Instance.new("BodyVelocity", hrp)
+    bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
     
-    isWarping = false
-end
-
--- [[ 3. UI & AUTH SYSTEM (24H) ]] --
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RH_Aether_Fix"
-ScreenGui.Parent = player:WaitForChild("PlayerGui")
-ScreenGui.IgnoreGuiInset = true
-
-local Island = Instance.new("Frame")
-Island.Parent = ScreenGui
-Island.BackgroundColor3 = Color3.new(0, 0, 0)
-Island.Position = UDim2.new(0.5, -65, 0, 15)
-Island.Size = UDim2.new(0, 130, 0, 38)
-Island.ClipsDescendants = true
-Instance.new("UICorner", Island).CornerRadius = UDim.new(1, 0)
-
-local UIStroke = Instance.new("UIStroke", Island)
-UIStroke.Thickness = 1.5
-UIStroke.Color = Color3.fromRGB(0, 255, 150)
-
-local MainLabel = Instance.new("TextLabel")
-MainLabel.Parent = Island
-MainLabel.Size = UDim2.new(1, 0, 1, 0)
-MainLabel.BackgroundTransparency = 1
-MainLabel.Font = Enum.Font.GothamBold
-MainLabel.TextColor3 = Color3.new(1, 1, 1)
-MainLabel.TextSize = 10
-MainLabel.Text = "AETHER v" .. string.format("%.2f", currentVer)
-
--- Update Panel
-local UpdatePanel = Instance.new("Frame")
-UpdatePanel.Parent = ScreenGui
-UpdatePanel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-UpdatePanel.Position = UDim2.new(1, 20, 0.4, 0)
-UpdatePanel.Size = UDim2.new(0, 260, 0, 150)
-Instance.new("UICorner", UpdatePanel)
-
-local UpdateBtn = Instance.new("TextButton")
-UpdateBtn.Parent = UpdatePanel
-UpdateBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
-UpdateBtn.Size = UDim2.new(0, 235, 0, 38)
-UpdateBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
-UpdateBtn.Font = Enum.Font.GothamBold
-UpdateBtn.Text = "EVOLVE TO v" .. string.format("%.2f", currentVer + 0.1)
-Instance.new("UICorner", UpdateBtn)
-
--- [[ 4. MAIN CONTROLLER ]] --
-local function startFarming()
     task.spawn(function()
-        while true do
-            -- เช็ควันหมดอายุ (24 ชม.)
-            if isfile(SAVE_FILE) then
-                local data = HttpService:JSONDecode(readfile(SAVE_FILE))
-                if (os.time() - data.startTime) >= 86400 then
-                    MainLabel.Text = "🔒 EXPIRED"
-                    break
-                end
-            end
+        while getgenv().flyEnabled do
+            bg.cframe = workspace.CurrentCamera.CFrame
+            bv.velocity = workspace.CurrentCamera.CFrame.LookVector * getgenv().flySpeed
+            task.wait()
+        end
+        -- จบการบินแบบนุ่มนวล
+        TweenService:Create(bg, TweenInfo.new(0.5), {P = 0}):Play()
+        task.wait(0.5)
+        bg:Destroy()
+        bv:Destroy()
+    end)
+end
 
-            executeWarp()
-            
-            for i = 20, 1, -1 do
-                if isExpanded then
-                    MainLabel.Text = "WINS: "..((player.leaderstats:FindFirstChild("Wins") or {Value=0}).Value).."\nNEXT: "..i.."s"
-                else
-                    MainLabel.Text = i.."s | v"..string.format("%.2f", currentVer)
+-- // --- UI TABS --- //
+
+-- [TAB 1: AUTO FARM]
+local Main = Window:NewTab("Auto Farm")
+local CandySection = Main:NewSection("🍭 Lolipop System")
+
+CandySection:NewToggle("Auto Candy (Smooth)", "เก็บลูกอมแบบมี Animation ป้องกันการโดนเด้ง", function(state)
+    getgenv().candyEnabled = state
+    if state then
+        task.spawn(function()
+            while getgenv().candyEnabled do
+                for i = 1, 30 do
+                    if not getgenv().candyEnabled then break end
+                    pcall(function()
+                        game:GetService("ReplicatedStorage").ReplicatedStorage_Source.Packages.Knit.Services.LolipopService.RF.CollectRegularLolipop:InvokeServer("Regular_" .. i)
+                    end)
+                    task.wait(0.05)
                 end
                 task.wait(1)
             end
-        end
-    end)
-end
-
--- [[ 5. INTERACTION ]] --
-Island.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        isExpanded = not isExpanded
-        local ts = isExpanded and UDim2.new(0, 220, 0, 80) or UDim2.new(0, 130, 0, 38)
-        TweenService:Create(Island, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Size = ts}):Play()
+        end)
     end
 end)
 
-UpdateBtn.MouseButton1Click:Connect(function()
-    currentVer = currentVer + 0.1
-    MainLabel.Text = "UPDATING..."
-    task.wait(1.5)
-    MainLabel.Text = "v" .. string.format("%.2f", currentVer)
-    UpdatePanel:TweenPosition(UDim2.new(1, 20, 0.4, 0), "In", "Sine", 0.5)
-    -- เปลี่ยนลูกเล่น UI หลังอัพเดต
-    UIStroke.Color = Color3.fromHSV(tick()%1, 1, 1)
+local QuestSection = Main:NewSection("🏆 UGC Quests")
+QuestSection:NewButton("Auto Collect All Om Nom", "วาร์ปเก็บไอเทมทุกอย่างแบบนุ่มนวล", function()
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v.Name:lower():find("omnom") and (v:IsA("BasePart") or v:IsA("MeshPart")) then
+            local tw = SmoothTeleport(v.CFrame)
+            if tw then tw.Completed:Wait() end -- รอให้เดินไปถึงก่อนค่อยไปตัวต่อไป
+            task.wait(0.3)
+        end
+    end
 end)
 
--- Auth
-local function init()
-    local kIn = Instance.new("TextBox", Island)
-    kIn.Size = UDim2.new(1,0,1,0); kIn.BackgroundTransparency = 1; kIn.TextColor3 = Color3.new(1,1,1); kIn.PlaceholderText = "24H KEY"
-    kIn.FocusLost:Connect(function(enter)
-        if enter then
-            if kIn.Text == TARGET_KEY or kIn.Text == ADMIN_KEY then
-                writefile(SAVE_FILE, HttpService:JSONEncode({startTime = os.time(), type = kIn.Text}))
-                kIn:Destroy()
-                startFarming()
-                UpdatePanel:TweenPosition(UDim2.new(1, -280, 0.4, 0), "Out", "Back", 0.5)
-            end
-        end
-    end)
-end
+-- [TAB 2: MOVEMENT]
+local Move = Window:NewTab("Movement")
+local FlySection = Move:NewSection("🚀 Advanced Fly")
 
-init()
+FlySection:NewToggle("Fly Mode", "บินไปตามกล้อง (W,A,S,D)", function(state)
+    getgenv().flyEnabled = state
+    if state then ToggleFly() end
+end)
+
+FlySection:NewSlider("Fly Speed", "ความเร็วการร่อน", 300, 50, function(s)
+    getgenv().flySpeed = s
+end)
+
+FlySection:NewButton("Infinite Jump", "กระโดดบนอากาศได้ไม่จำกัด", function()
+    game:GetService("UserInputService").JumpRequest:Connect(function()
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+    end)
+end)
+
+-- [TAB 3: VISUALS & SETTINGS]
+local Settings = Window:NewTab("Settings")
+local VisualSection = Settings:NewSection("UI Customization")
+
+VisualSection:NewKeybind("Toggle UI", "กดเพื่อซ่อนเมนู", Enum.KeyCode.RightControl, function()
+    Library:ToggleUI()
+end)
+
+VisualSection:NewLabel("Animated Edition v2.0")
+VisualSection:NewLabel("Credit: Gubby & Gemini")
+
+-- Notify Success
+Library:Notify("Script Loaded!", "ระบบฟาร์มพร้อมทำงานแล้ว", 5)
