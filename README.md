@@ -1,111 +1,121 @@
--- [[ MARKW SYSTEM: ANTI-BAN & ANTI-ERROR 267 ]]
--- ปรับปรุงจาก FIER X RYUU เพื่อความเนียนสูงสุด
+-- [[ MARKW SYSTEM: THE PATHFINDER ]]
+-- วิธีใช้: ยืนในบ้านตัวเองแล้วกดเริ่ม ระบบจะเดินไปซื้อปุ่มที่ใกล้ที่สุดเอง
 
 repeat task.wait() until game:IsLoaded()
 
+local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LP = Players.LocalPlayer
+local Character = LP.Character or LP.CharacterAdded:Wait()
+local Hum = Character:WaitForChild("Humanoid")
+local Root = Character:WaitForChild("HumanoidRootPart")
 
-repeat task.wait() until LP and LP:FindFirstChild("PlayerGui")
+_G.GhostWalk = false
 
--- ล้างระบบเก่า
-if getgenv().MARKW_PROTECT then
-	getgenv().MARKW_PROTECT:Disconnect()
-	getgenv().MARKW_PROTECT = nil
-end
-
-local Remotes = ReplicatedStorage:WaitForChild("RemoteEvents")
-local CoinEvent = Remotes:WaitForChild("CollectIncome")
-local GemEvent = Remotes:WaitForChild("RemoteCollectGem")
-local SpinEvent = ReplicatedStorage:WaitForChild("RemoteFunctions"):WaitForChild("IncrementSpinAvailable")
-
--- [[ UI ระบบป้องกันภาษาไทย ]]
+-- [[ UI สไตล์ MARKW: เรียบง่ายและอยู่กึ่งกลาง ]]
 local Gui = Instance.new("ScreenGui", LP.PlayerGui)
-Gui.Name = "MARKW_SAFE_SYSTEM"
-
 local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 300, 0, 350)
-Main.Position = UDim2.new(0.5, -150, 0.5, -175)
+Main.Size = UDim2.new(0, 240, 0, 100)
+Main.Position = UDim2.new(0.5, -120, 0.5, -50)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 15)
 
-local Stroke = Instance.new("UIStroke", Main)
-Stroke.Thickness = 2
-Stroke.Color = Color3.fromRGB(0, 255, 150)
-
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 50)
-Title.Text = "MARKW ANTI-ERROR 267"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "MARKW PATHFINDER"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextColor3 = Color3.new(1, 1, 1)
 Title.BackgroundTransparency = 1
 
--- ฟังก์ชันเคลื่อนที่แบบปลอดภัย (ป้องกัน Error 267)
-local function SafeTeleport(targetPart)
-	local char = LP.Character
-	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if hrp and targetPart then
-		-- ล้างแรงกระชากของตัวละครก่อนวาร์ป (ป้องกันตรวจเจอความเร็วสูง)
-		hrp.Velocity = Vector3.new(0, 0, 0)
-		hrp.RotVelocity = Vector3.new(0, 0, 0)
-		
-		-- วาร์ปแบบมี Offset เล็กน้อยเพื่อความเนียน
-		hrp.CFrame = targetPart.CFrame + Vector3.new(0, 3.5, 0)
-		
-		-- ส่งสัญญาณสัมผัสแบบเว้นจังหวะ
-		firetouchinterest(hrp, targetPart, 0)
-		task.wait(0.05)
-		firetouchinterest(hrp, targetPart, 1)
-	end
+-- [[ ฟังก์ชันเดินแบบฉลาด (หลบกำแพง) ]]
+local function SmartWalk(targetPos)
+    local path = PathfindingService:CreatePath({
+        AgentRadius = 2,
+        AgentHeight = 5,
+        AgentCanJump = true,
+        AgentJumpHeight = 10,
+    })
+    
+    local success, errorMessage = pcall(function()
+        path:ComputeAsync(Root.Position, targetPos)
+    end)
+
+    if success and path.Status == Enum.PathStatus.Success then
+        local waypoints = path:GetWaypoints()
+        for _, waypoint in pairs(waypoints) do
+            if not _G.GhostWalk then break end
+            
+            -- ถ้าต้องกระโดด
+            if waypoint.Action == Enum.PathWaypointAction.Jump then
+                Hum.Jump = true
+            end
+            
+            Hum:MoveTo(waypoint.Position)
+            -- รอจนกว่าจะถึงจุดพักย่อย (เนียนมาก)
+            local timeOut = 0
+            while (Root.Position - waypoint.Position).Magnitude > 2 and timeOut < 10 do
+                task.wait(0.1)
+                timeOut = timeOut + 1
+            end
+        end
+    else
+        -- ถ้า Pathfinding ล้มเหลว ให้เดินตรงๆ ไปเลย (กรณีระยะสั้น)
+        Hum:MoveTo(targetPos)
+        Hum.MoveToFinished:Wait()
+    end
 end
 
--- ระบบจัดการปุ่ม
-local Toggles = {IC = false, IG = false, AT = false, AC = false, IS = false}
-local function AddToggle(txt, y, key)
-	local B = Instance.new("TextButton", Main)
-	B.Size = UDim2.new(0, 260, 0, 40)
-	B.Position = UDim2.new(0.5, -130, 0, y)
-	B.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-	B.Text = txt.." : ปิด"
-	B.TextColor3 = Color3.new(1, 1, 1)
-	Instance.new("UICorner", B)
-	B.MouseButton1Click:Connect(function()
-		Toggles[key] = not Toggles[key]
-		B.Text = txt.." : "..(Toggles[key] and "เปิด" or "ปิด")
-		B.BackgroundColor3 = Toggles[key] and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(30, 30, 30)
-	end)
-end
+-- [[ ระบบสแกนหาปุ่มและเหรียญ ]]
+task.spawn(function()
+    while true do
+        if _G.GhostWalk then
+            pcall(function()
+                local target = nil
+                local minDist = 50 -- เดินในระยะ 50 เมตรเพื่อความปลอดภัย
 
-AddToggle("ออโต้ปั๊มเงิน (Safe)", 60, "IC")
-AddToggle("ออโต้ปั๊มเพชร (Safe)", 110, "IG")
-AddToggle("ออโต้สร้างบ้าน (Anti-Ban)", 160, "AT")
-AddToggle("ออโต้เก็บเงินเครื่อง (Safe)", 210, "AC")
-AddToggle("ออโต้สปิน (Safe)", 260, "IS")
+                -- ค้นหาปุ่มที่สร้างได้
+                for _, v in pairs(workspace:GetDescendants()) do
+                    if v:IsA("BasePart") and v.Transparency < 0.5 then
+                        local n = v.Name:lower()
+                        if n:find("button") or n:find("pad") or n:find("coin") then
+                            local d = (Root.Position - v.Position).Magnitude
+                            if d < minDist then
+                                minDist = d
+                                target = v
+                            end
+                        end
+                    end
+                end
 
--- Loop หลัก (ปรับจูนความถี่เพื่อเลี่ยง 267)
-local t1, t2, t3, t4, t5 = 0, 0, 0, 0, 0
-getgenv().MARKW_PROTECT = RunService.Heartbeat:Connect(function(dt)
-	t1+=dt t2+=dt t3+=dt t4+=dt t5+=dt
-	
-	-- ปั๊มเงิน/เพชร (เพิ่มดีเลย์ให้ไม่ถี่เกินไป)
-	if Toggles.IC and t1 > 0.4 then t1=0 pcall(function() CoinEvent:FireServer() end) end
-	if Toggles.IG and t2 > 0.5 then t2=0 pcall(function() GemEvent:FireServer() end) end
-	if Toggles.IS and t3 > 1.2 then t3=0 pcall(function() SpinEvent:InvokeServer(500) end) end
-
-	-- ระบบสร้างบ้านแบบ Safe Move
-	if Toggles.AT and t4 > 1.8 then
-		t4=0
-		-- ค้นหาปุ่มใน Tycoon (ใช้ Logic ค้นหาปุ่มที่เงินพอเหมือนตัวก่อน)
-		pcall(function()
-			-- ใส่โค้ดค้นหา Parts และวาร์ปด้วย SafeTeleport(p)
-		end)
-	end
+                if target then
+                    SmartWalk(target.Position)
+                    task.wait(math.random(1, 2)) -- หยุดรอหลังถึงจุดหมาย เหมือนคนเล่นจริง
+                end
+            end)
+        end
+        task.wait(1)
+    end
 end)
 
--- Anti-AFK (กันหลุดเมื่อเปิดทิ้งไว้)
+-- ปุ่มเปิดโหมด
+local Btn = Instance.new("TextButton", Main)
+Btn.Size = UDim2.new(0, 200, 0, 40)
+Btn.Position = UDim2.new(0.5, -100, 0, 45)
+Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Btn.Text = "เริ่มเดินฟาร์ม (ปลอดภัย)"
+Btn.TextColor3 = Color3.new(1, 1, 1)
+Btn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", Btn)
+
+Btn.MouseButton1Click:Connect(function()
+    _G.GhostWalk = not _G.GhostWalk
+    Btn.Text = _G.GhostWalk and "กำลังเดิน..." or "เริ่มเดินฟาร์ม (ปลอดภัย)"
+    Btn.BackgroundColor3 = _G.GhostWalk and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(40, 40, 40)
+end)
+
+-- Anti-AFK
 LP.Idled:Connect(function()
-	game:GetService("VirtualUser"):CaptureController()
-	game:GetService("VirtualUser"):ClickButton2(Vector2.new(0,0))
+    game:GetService("VirtualUser"):Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    game:GetService("VirtualUser"):Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
 end)
