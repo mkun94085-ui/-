@@ -1,124 +1,126 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
-local Window = Library.CreateLib("AmNyamania 2 ✨ ANIMATED", "Midnight")
+-- [[ MARKW SYSTEM: ONE-CLICK FRN PASS MAX ]]
+-- เป้าหมาย: เลเวล 100 ภายในปุ่มเดียว
+-- ระบบ: Auto Decision + Multi-Remote Loop + Smart Build
 
--- // Services
-local TweenService = game:GetService("TweenService")
+repeat task.wait() until game:IsLoaded()
+
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local LP = Players.LocalPlayer
+local Root = LP.Character:WaitForChild("HumanoidRootPart")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
--- // Configuration
-getgenv().candyEnabled = false
-getgenv().autoFarm = false
-getgenv().flyEnabled = false
-getgenv().flySpeed = 60
+-- ระบบ Remote (ดึงจากสคริปต์ที่คุณใช้)
+local Remotes = ReplicatedStorage:WaitForChild("RemoteEvents")
+local CoinEvent = Remotes:WaitForChild("CollectIncome")
+local GemEvent = Remotes:WaitForChild("RemoteCollectGem")
+local SpinEvent = ReplicatedStorage:WaitForChild("RemoteFunctions"):WaitForChild("IncrementSpinAvailable")
 
--- // --- ANIMATION FUNCTIONS --- //
+_G.MasterSwitch = false
 
--- ฟังก์ชันวาร์ปแบบนุ่มนวล (Tween Animation)
-local function SmoothTeleport(targetCFrame)
-    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = LocalPlayer.Character.HumanoidRootPart
-    local distance = (hrp.Position - targetCFrame.Position).Magnitude
-    local speed = 100 -- ความเร็วในการวาร์ป (ยิ่งเยอะยิ่งเร็ว)
-    local duration = distance / speed
+-- [[ UI DESIGN: CENTERED MODERN ]]
+local Gui = Instance.new("ScreenGui", LP.PlayerGui)
+local Main = Instance.new("Frame", Gui)
+Main.Size = UDim2.new(0, 260, 0, 180)
+Main.Position = UDim2.new(0.5, -130, 0.5, -90)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+local Corner = Instance.new("UICorner", Main)
+Corner.CornerRadius = UDim.new(0, 20)
 
-    local info = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(hrp, info, {CFrame = targetCFrame})
-    
-    tween:Play()
-    return tween
-end
+local Stroke = Instance.new("UIStroke", Main)
+Stroke.Thickness = 3
+Stroke.Color = Color3.fromRGB(0, 255, 150)
 
--- ระบบบินพร้อม Animation (Smooth Fly)
-local function ToggleFly()
-    local char = LocalPlayer.Character
-    local hrp = char:WaitForChild("HumanoidRootPart")
-    
-    local bg = Instance.new("BodyGyro", hrp)
-    bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-    bg.P = 5000 -- ปรับให้หมุนนุ่มนวล
-    
-    local bv = Instance.new("BodyVelocity", hrp)
-    bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
-    
-    task.spawn(function()
-        while getgenv().flyEnabled do
-            bg.cframe = workspace.CurrentCamera.CFrame
-            bv.velocity = workspace.CurrentCamera.CFrame.LookVector * getgenv().flySpeed
-            task.wait()
-        end
-        -- จบการบินแบบนุ่มนวล
-        TweenService:Create(bg, TweenInfo.new(0.5), {P = 0}):Play()
-        task.wait(0.5)
-        bg:Destroy()
-        bv:Destroy()
-    end)
-end
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.Text = "MARKW FRN PASS MAX"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.BackgroundTransparency = 1
 
--- // --- UI TABS --- //
-
--- [TAB 1: AUTO FARM]
-local Main = Window:NewTab("Auto Farm")
-local CandySection = Main:NewSection("🍭 Lolipop System")
-
-CandySection:NewToggle("Auto Candy (Smooth)", "เก็บลูกอมแบบมี Animation ป้องกันการโดนเด้ง", function(state)
-    getgenv().candyEnabled = state
-    if state then
-        task.spawn(function()
-            while getgenv().candyEnabled do
-                for i = 1, 30 do
-                    if not getgenv().candyEnabled then break end
-                    pcall(function()
-                        game:GetService("ReplicatedStorage").ReplicatedStorage_Source.Packages.Knit.Services.LolipopService.RF.CollectRegularLolipop:InvokeServer("Regular_" .. i)
-                    end)
-                    task.wait(0.05)
+-- [[ ไม้ตาย: ฟังก์ชันกวาดล้างทุกอย่าง (Build & Collect) ]]
+local function MasterLoop()
+    pcall(function()
+        -- 1. หา Tycoon
+        local MyTycoon = nil
+        for _,v in pairs(workspace:GetChildren()) do
+            if v:IsA("Model") and v.Name:lower():find("tycoon") then
+                local p = v:FindFirstChildWhichIsA("BasePart", true)
+                if p and (Root.Position - p.Position).Magnitude < 150 then
+                    MyTycoon = v; break
                 end
-                task.wait(1)
             end
-        end)
-    end
-end)
-
-local QuestSection = Main:NewSection("🏆 UGC Quests")
-QuestSection:NewButton("Auto Collect All Om Nom", "วาร์ปเก็บไอเทมทุกอย่างแบบนุ่มนวล", function()
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v.Name:lower():find("omnom") and (v:IsA("BasePart") or v:IsA("MeshPart")) then
-            local tw = SmoothTeleport(v.CFrame)
-            if tw then tw.Completed:Wait() end -- รอให้เดินไปถึงก่อนค่อยไปตัวต่อไป
-            task.wait(0.3)
         end
+
+        if MyTycoon then
+            -- 2. สแกนหาปุ่มที่สร้างได้
+            for _,v in pairs(MyTycoon:GetDescendants()) do
+                if v:IsA("BasePart") and (v.Name:lower():find("button") or v.Name:lower():find("pad")) then
+                    if v.Transparency < 0.5 then
+                        -- วาร์ปไปเหยียบแบบเสี้ยววินาที
+                        local oldCF = Root.CFrame
+                        Root.CFrame = v.CFrame + Vector3.new(0, 3, 0)
+                        firetouchinterest(Root, v, 0)
+                        task.wait(0.05)
+                        firetouchinterest(Root, v, 1)
+                        Root.CFrame = oldCF
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- [[ ปุ่มเดียวเสียวทั้งเซิร์ฟ ]]
+local MasterBtn = Instance.new("TextButton", Main)
+MasterBtn.Size = UDim2.new(0, 220, 0, 80)
+MasterBtn.Position = UDim2.new(0.5, -110, 0, 70)
+MasterBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MasterBtn.Text = "START AFK PASS 100%"
+MasterBtn.TextColor3 = Color3.new(1, 1, 1)
+MasterBtn.Font = Enum.Font.GothamBlack
+MasterBtn.TextSize = 18
+Instance.new("UICorner", MasterBtn).CornerRadius = UDim.new(0, 15)
+
+MasterBtn.MouseButton1Click:Connect(function()
+    _G.MasterSwitch = not _G.MasterSwitch
+    MasterBtn.Text = _G.MasterSwitch and "SYSTEM ACTIVE" or "START AFK PASS 100%"
+    MasterBtn.BackgroundColor3 = _G.MasterSwitch and Color3.fromRGB(0, 150, 100) or Color3.fromRGB(30, 30, 30)
+end)
+
+-- [[ HEARTBEAT: RUN EVERYTHING ]]
+local t1, t2 = 0, 0
+RunService.Heartbeat:Connect(function(dt)
+    if _G.MasterSwitch then
+        t1 += dt
+        t2 += dt
+        
+        -- ปั๊มค่าเงินและเพชรรัวๆ (Bypass Remote)
+        if t1 > 0.1 then
+            t1 = 0
+            pcall(function() CoinEvent:FireServer() end)
+            pcall(function() GemEvent:FireServer() end)
+            pcall(function() SpinEvent:InvokeServer(999999) end)
+        end
+        
+        -- สั่งสร้างบ้าน
+        if t2 > 1 then
+            t2 = 0
+            task.spawn(MasterLoop)
+        end
+        
+        -- Rainbow Effect
+        Stroke.Color = Color3.fromHSV((tick() * 0.2) % 1, 0.8, 1)
+        Title.TextColor3 = Stroke.Color
     end
 end)
 
--- [TAB 2: MOVEMENT]
-local Move = Window:NewTab("Movement")
-local FlySection = Move:NewSection("🚀 Advanced Fly")
-
-FlySection:NewToggle("Fly Mode", "บินไปตามกล้อง (W,A,S,D)", function(state)
-    getgenv().flyEnabled = state
-    if state then ToggleFly() end
+-- Anti-AFK
+LP.Idled:Connect(function()
+    game:GetService("VirtualUser"):Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    game:GetService("VirtualUser"):Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
 end)
 
-FlySection:NewSlider("Fly Speed", "ความเร็วการร่อน", 300, 50, function(s)
-    getgenv().flySpeed = s
-end)
-
-FlySection:NewButton("Infinite Jump", "กระโดดบนอากาศได้ไม่จำกัด", function()
-    game:GetService("UserInputService").JumpRequest:Connect(function()
-        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-    end)
-end)
-
--- [TAB 3: VISUALS & SETTINGS]
-local Settings = Window:NewTab("Settings")
-local VisualSection = Settings:NewSection("UI Customization")
-
-VisualSection:NewKeybind("Toggle UI", "กดเพื่อซ่อนเมนู", Enum.KeyCode.RightControl, function()
-    Library:ToggleUI()
-end)
-
-VisualSection:NewLabel("Animated Edition v2.0")
-VisualSection:NewLabel("Credit: Gubby & Gemini")
-
--- Notify Success
-Library:Notify("Script Loaded!", "ระบบฟาร์มพร้อมทำงานแล้ว", 5)
+print("MARKW X FIER: ONE-CLICK MAX PASS READY!")
