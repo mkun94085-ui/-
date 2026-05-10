@@ -1,82 +1,196 @@
--- [[ MARKW SYSTEM: ADMIN 045442 - FIXED UI ]]
--- ฟีเจอร์: มีช่องใส่ Code, ดูดทั้งแมพ, รีเบิร์ท, อัปเกรดฉลาด, ออโต้เคลม
+--[[
+    ╔══════════════════════════════════════════════╗
+    ║                MARKW SYSTEM                  ║
+    ║        ALL-IN-ONE: ROLL & AUTO CLAIM         ║
+    ╚══════════════════════════════════════════════╝
+]]
 
-repeat task.wait() until game:IsLoaded()
-
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Root = LP.Character:WaitForChild("HumanoidRootPart")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
 
--- ตัวแปรระบบ
-_G.IsAdmin = false
-_G.MasterFarm = false
-_G.AutoRebirth = false
-_G.SmartUpgrade = false
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
 
--- [[ UI PREMIUM DESIGN ]]
-local Gui = Instance.new("ScreenGui", LP.PlayerGui)
-Gui.Name = "MARKW_ADMIN_FIXED"
-Gui.ResetOnSpawn = false
+-- // CONFIGURATION // --
+local Config = {
+    AutoRoll = false,
+    AutoClaim = true,
+    RollDelay = 0.5,
+    ClaimRadius = 500,
+    ItemKey = "UGC"
+}
 
-local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 340, 0, 450)
-Main.Position = UDim2.new(0.5, -170, 0.5, -225)
-Main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 20)
+-- // UI CONSTRUCTION // --
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MarkW_Ultimate_System"
+ScreenGui.Parent = CoreGui
+ScreenGui.ResetOnSpawn = false
 
-local Stroke = Instance.new("UIStroke", Main)
-Stroke.Thickness = 3
-Stroke.Color = Color3.fromRGB(255, 255, 255)
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 380, 0, 480)
+MainFrame.Position = UDim2.new(0.5, -190, 0.5, -240) -- อยู่กลางหน้าจอเสมอ
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
 
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 50)
-Title.Text = "MARKW ADMIN HUB"
-Title.Font = Enum.Font.GothamBlack
-Title.TextSize = 18
-Title.TextColor3 = Color3.new(1, 1, 1)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 18)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(35, 35, 35)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+-- Header
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 60)
 Title.BackgroundTransparency = 1
+Title.Text = "MARKW SYSTEM"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
 
--- [[ 1. ช่องใส่ CODE อัปเดต (เพิ่มให้แล้วครับ) ]]
-local CodeBox = Instance.new("TextBox", Main)
-CodeBox.Size = UDim2.new(0, 280, 0, 45)
-CodeBox.Position = UDim2.new(0.5, -140, 0, 60)
-CodeBox.PlaceholderText = "กรอก CODE (045442)..."
-CodeBox.Text = ""
-CodeBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-CodeBox.TextColor3 = Color3.new(1, 1, 1)
-CodeBox.Font = Enum.Font.GothamBold
-Instance.new("UICorner", CodeBox)
+-- Display Result
+local Display = Instance.new("Frame")
+Display.Size = UDim2.new(0.88, 0, 0, 120)
+Display.Position = UDim2.new(0.06, 0, 0.15, 0)
+Display.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Display.Parent = MainFrame
 
-CodeBox.FocusLost:Connect(function(enter)
-    if enter then
-        if CodeBox.Text == "045442" then
-            _G.IsAdmin = true
-            CodeBox.Text = "CODE SUCCESS: ADMIN ACTIVE"
-            CodeBox.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-            Title.Text = "MARKW ADMIN: 045442"
-            Stroke.Color = Color3.fromRGB(0, 255, 200)
-        else
-            CodeBox.Text = "CODE INVALID!"
-            task.wait(1)
-            CodeBox.Text = ""
+local DisplayCorner = Instance.new("UICorner")
+DisplayCorner.CornerRadius = UDim.new(0, 12)
+DisplayCorner.Parent = Display
+
+local ResultText = Instance.new("TextLabel")
+ResultText.Size = UDim2.new(1, 0, 1, 0)
+ResultText.BackgroundTransparency = 1
+ResultText.Text = "READY"
+ResultText.TextColor3 = Color3.fromRGB(0, 255, 150)
+ResultText.TextSize = 35
+ResultText.Font = Enum.Font.GothamBold
+ResultText.Parent = Display
+
+-- // FUNCTIONS // --
+
+local isRolling = false
+local function rollEffect()
+    if isRolling then return end
+    isRolling = true
+    
+    local items = {"COMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"}
+    local colors = {
+        Color3.fromRGB(180, 180, 180),
+        Color3.fromRGB(80, 255, 120),
+        Color3.fromRGB(150, 100, 255),
+        Color3.fromRGB(255, 200, 50),
+        Color3.fromRGB(255, 50, 50)
+    }
+
+    for i = 1, 12 do
+        local rand = math.random(1, #items)
+        ResultText.Text = items[rand]
+        ResultText.TextColor3 = colors[rand]
+        task.wait(0.06)
+    end
+    
+    -- จำลองโอกาสได้ UGC (ปรับตามระบบจริงของเกม)
+    if math.random(1, 100) > 98 then
+        ResultText.Text = "UGC UNLOCKED!"
+        ResultText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    else
+        ResultText.Text = "LUCK: " .. math.random(1, 999)
+    end
+    
+    isRolling = false
+end
+
+-- // BUTTON CREATOR // --
+local function createButton(name, pos, text, color)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(0.88, 0, 0, 50)
+    btn.Position = pos
+    btn.BackgroundColor3 = color
+    btn.Text = text
+    btn.TextColor3 = Color3.white
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.AutoButtonColor = false
+    btn.Parent = MainFrame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = btn
+    
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+    end)
+    
+    return btn
+end
+
+local RollBtn = createButton("RollBtn", UDim2.new(0.06, 0, 0.45, 0), "MANUAL ROLL", Color3.fromRGB(0, 120, 215))
+local AutoRollBtn = createButton("AutoRollBtn", UDim2.new(0.06, 0, 0.58, 0), "AUTO ROLL: OFF", Color3.fromRGB(40, 40, 40))
+local AutoClaimBtn = createButton("AutoClaimBtn", UDim2.new(0.06, 0, 0.71, 0), "AUTO CLAIM: ON", Color3.fromRGB(0, 170, 127))
+
+-- // LOGIC HANDLERS // --
+
+RollBtn.MouseButton1Click:Connect(rollEffect)
+
+AutoRollBtn.MouseButton1Click:Connect(function()
+    Config.AutoRoll = not Config.AutoRoll
+    if Config.AutoRoll then
+        AutoRollBtn.Text = "AUTO ROLL: ON"
+        AutoRollBtn.BackgroundColor3 = Color3.fromRGB(170, 85, 255)
+    else
+        AutoRollBtn.Text = "AUTO ROLL: OFF"
+        AutoRollBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    end
+end)
+
+AutoClaimBtn.MouseButton1Click:Connect(function()
+    Config.AutoClaim = not Config.AutoClaim
+    if Config.AutoClaim then
+        AutoClaimBtn.Text = "AUTO CLAIM: ON"
+        AutoClaimBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 127)
+    else
+        AutoClaimBtn.Text = "AUTO CLAIM: OFF"
+        AutoClaimBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    end
+end)
+
+-- Loop: Auto Roll
+task.spawn(function()
+    while task.wait(Config.RollDelay) do
+        if Config.AutoRoll and not isRolling then
+            pcall(rollEffect)
         end
     end
 end)
 
--- [[ 2. ระบบ MAGNET (ถั่ว & เพชร) ]]
+-- Loop: Auto Claim Ground Items
 task.spawn(function()
-    while task.wait(0.1) do
-        if _G.MasterFarm then
+    while task.wait(0.5) do
+        if Config.AutoClaim then
             pcall(function()
-                -- ถ้าใส่ Code แล้ว ดูดทั้งแมพ (99999) ถ้ายังไม่ใส่ ดูดระยะ 150
-                local Range = _G.IsAdmin and 99999 or 150
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v:IsA("BasePart") and v.Transparency < 0.5 then
-                        local n = v.Name:lower()
-                        if n:find("nut") or n:find("gem") or n:find("token") or n:find("diamond") then
-                            v.CFrame = Root.CFrame - Vector3.new(0, 3, 0)
+                local hrp = Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("TouchTransmitter") and obj.Parent:IsA("Part") then
+                        local item = obj.Parent
+                        if (hrp.Position - item.Position).Magnitude <= Config.ClaimRadius then
+                            firetouchinterest(hrp, item, 0)
+                            task.wait()
+                            firetouchinterest(hrp, item, 1)
                         end
                     end
                 end
@@ -85,75 +199,21 @@ task.spawn(function()
     end
 end)
 
--- [[ 3. ระบบ REBIRTH & UPGRADE ]]
-task.spawn(function()
-    while task.wait(1.5) do
-        if _G.AutoRebirth then
-            for _, r in pairs(ReplicatedStorage:GetDescendants()) do
-                if r:IsA("RemoteEvent") and r.Name:lower():find("rebirth") then r:FireServer() end
-            end
-        end
-        if _G.SmartUpgrade then
-            for _, r in pairs(ReplicatedStorage:GetDescendants()) do
-                if r:IsA("RemoteEvent") and (r.Name:lower():find("upgrade") or r.Name:lower():find("buy")) then
-                    if r.Name:lower():find("multi") then for i=1,5 do r:FireServer(i) end end
-                    r:FireServer(1)
-                end
-            end
-        end
+-- Draggable UI
+local dragging, dragInput, dragStart, startPos
+MainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true; dragStart = input.Position; startPos = MainFrame.Position
     end
 end)
-
--- [[ 4. ระบบ AUTO CLAIM UGC ]]
-task.spawn(function()
-    while task.wait(10) do
-        if _G.IsAdmin and _G.MasterFarm then
-            pcall(function()
-                if LP.leaderstats.Nuts.Value >= 1000000 then
-                    local Claim = ReplicatedStorage:FindFirstChild("ClaimUGC", true) or ReplicatedStorage:FindFirstChild("Events"):FindFirstChild("Claim")
-                    if Claim then Claim:FireServer() end
-                end
-            end)
-        end
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
--- [[ ฟังก์ชันสร้างปุ่ม ]]
-local function AddToggle(txt, y, key)
-    local B = Instance.new("TextButton", Main)
-    B.Size = UDim2.new(0, 280, 0, 50)
-    B.Position = UDim2.new(0.5, -140, 0, y)
-    B.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    B.Text = txt .. " : ปิด"
-    B.TextColor3 = Color3.new(1, 1, 1)
-    B.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", B).CornerRadius = UDim.new(0, 12)
-    
-    B.MouseButton1Click:Connect(function()
-        _G[key] = not _G[key]
-        B.Text = txt .. " : " .. (_G[key] and "เปิด" or "ปิด")
-        B.BackgroundColor3 = _G[key] and Color3.fromRGB(0, 180, 100) or Color3.fromRGB(30, 30, 30)
-    end)
-end
-
-AddToggle("เริ่มดูดของอัตโนมัติ", 120, "MasterFarm")
-AddToggle("อัปเกรดอัตโนมัติ", 185, "SmartUpgrade")
-AddToggle("รีเบิร์ทอัตโนมัติ", 250, "AutoRebirth")
-
--- ปุ่มเปิด/ปิดหน้าเมนู
-local Tgl = Instance.new("TextButton", Gui)
-Tgl.Size = UDim2.new(0, 80, 0, 35)
-Tgl.Position = UDim2.new(0.5, -40, 0, 10)
-Tgl.Text = "MENU"
-Tgl.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Tgl.TextColor3 = Color3.new(1, 1, 1)
-Instance.new("UICorner", Tgl)
-Tgl.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
-
--- RGB Effect & Anti-AFK
-RunService.RenderStepped:Connect(function()
-    local c = Color3.fromHSV(tick() % 5 / 5, 0.8, 1)
-    if not _G.IsAdmin then Stroke.Color = c end
-    Title.TextColor3 = c
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
-LP.Idled:Connect(function() game:GetService("VirtualUser"):ClickButton2(Vector2.new(0,0)) end)
+
+print("MARKW SYSTEM LOADED - UI CENTERED & READY")
